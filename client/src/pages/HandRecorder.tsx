@@ -16,7 +16,15 @@ import playerChips from "./chips.png";
 
 
 
-type GameStage = 'setup' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown-hands' | 'complete'
+type GameStage =
+  | 'setup'
+  | 'preflop'
+  | 'flop'
+  | 'turn'
+  | 'river'
+  | 'showdown'
+  | 'showdown-hands'
+  | 'complete'
 type ActionType = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all-in'
 
 interface Player {
@@ -318,11 +326,14 @@ export function HandRecorder() {
         openCardSelector('river')
         break
       case 'river':
+        state.gameStage = 'showdown'
+        break
+      case 'showdown':
         state.gameStage = 'showdown-hands'
         break
     }
 
-    if (state.gameStage !== 'complete' && state.gameStage !== 'showdown-hands') {
+    if (!['complete', 'showdown', 'showdown-hands'].includes(state.gameStage)) {
       const dealerIndex = state.players.findIndex(p => p.position === 'BTN')
       for (let i = 1; i < state.players.length; i++) {
         const nextIndex = (dealerIndex + i) % state.players.length
@@ -570,7 +581,9 @@ export function HandRecorder() {
               <CardDescription>
                 {gameState.gameStage === 'showdown-hands'
                   ? "Select opponents' hole cards"
-                  : `Current Action: ${currentPlayer?.name} (${currentPlayer?.position})`}
+                  : gameState.gameStage === 'showdown'
+                    ? 'Showdown'
+                    : `Current Action: ${currentPlayer?.name} (${currentPlayer?.position})`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -909,7 +922,7 @@ export function HandRecorder() {
             </CardContent>
           </Card>
 
-          {currentPlayer && gameState.gameStage !== 'showdown-hands' && gameState.gameStage !== 'complete' && (
+        {currentPlayer && !['showdown', 'showdown-hands', 'complete'].includes(gameState.gameStage) && (
             <Card>
               <CardHeader>
                 <CardTitle>Player Action: {currentPlayer.name} ({currentPlayer.position})</CardTitle>
@@ -945,6 +958,23 @@ export function HandRecorder() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {gameState.gameStage === 'showdown' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Showdown</CardTitle>
+                <CardDescription>Record opponents' hole cards</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  onClick={() => setGameState(prev => ({ ...prev, gameStage: 'showdown-hands' }))}
+                  className="w-full"
+                >
+                  Record Opponent Hands
+                </Button>
               </CardContent>
             </Card>
           )}
