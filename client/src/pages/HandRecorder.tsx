@@ -9,10 +9,8 @@ import { useToast } from '@/hooks/useToast'
 import { getSessionById, createHand } from '@/api/sessions'
 import { CardSelector } from '@/components/hand-recorder/CardSelector'
 import { PlayerCards } from '@/components/PlayerCards'
+import { PlayingCard } from '@/components/PlayingCard'
 import { ArrowLeft, Save, Play, RotateCcw } from 'lucide-react'
-import { PlayingCard } from "./PlayingCard"
-import playerAvatar from "./player_id.png";
-import playerChips from "./chips.png";
 
 
 
@@ -573,340 +571,33 @@ export function HandRecorder() {
                   : `Current Action: ${currentPlayer?.name} (${currentPlayer?.position})`}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <style jsx>{`
-                // .poker-table {
-                //   width: 600px;
-                //   height: 360px;
-                //   background: linear-gradient(135deg, #2D7D7D 0%, #1A6B6B 100%);
-                //   border: 20px solid #8B4513;
-                //   border-radius: 180px;
-                //   box-shadow:
-                //     inset 0 0 20px rgba(0,0,0,0.3),
-                //     0 8px 16px rgba(0,0,0,0.4);
-                //   position: relative;
-                //   margin: 0 auto;
-                //   max-width: 100%;
-                // }
-
-                // .poker-table::before {
-                //   content: '';
-                //   position: absolute;
-                //   top: -20px;
-                //   left: -20px;
-                //   right: -20px;
-                //   bottom: -20px;
-                //   background: linear-gradient(135deg, #A0522D 0%, #8B4513 50%, #654321 100%);
-                //   border-radius: 180px;
-                //   z-index: -1;
-                //   box-shadow: 0 12px 24px rgba(0,0,0,0.5);
-                // }
-
-                // .poker-table::after {
-                //   content: '';
-                //   position: absolute;
-                //   top: 10px;
-                //   left: 10px;
-                //   right: 10px;
-                //   bottom: 10px;
-                //   border: 1px solid rgba(255,255,255,0.1);
-                //   border-radius: 170px;
-                //   pointer-events: none;
-                // }
-
-                .felt-texture {
-                  position: absolute;
-                  top: 0;
-                  left: 0;
-                  right: 0;
-                  bottom: 0;
-                  background-image: 
-                    radial-gradient(circle at 2px 2px, rgba(255,255,255,0.1) 1px, transparent 0),
-                    radial-gradient(circle at 1px 3px, rgba(0,0,0,0.1) 0.5px, transparent 0);
-                  background-size: 12px 12px, 8px 8px;
-                  border-radius: 160px;
-                  opacity: 0.3;
-                  pointer-events: none;
-                }
-
-                .wood-grain {
-                  position: absolute;
-                  top: -20px;
-                  left: -20px;
-                  right: -20px;
-                  bottom: -20px;
-                  background-image:
-                    repeating-linear-gradient(
-                      90deg,
-                      transparent,
-                      transparent 2px,
-                      rgba(0,0,0,0.1) 2px,
-                      rgba(0,0,0,0.1) 4px
-                    ),
-                    repeating-linear-gradient(
-                      0deg,
-                      transparent,
-                      transparent 1px,
-                      rgba(0,0,0,0.05) 1px,
-                      rgba(0,0,0,0.05) 2px
-                    );
-                  border-radius: 180px;
-                  opacity: 0.4;
-                  pointer-events: none;
-                  z-index: 1;
-                }
-
-                .community-cards-center {
-                  position: absolute;
-                  top: 50%;
-                  left: 50%;
-                  transform: translate(-50%, -50%);
-                  width: 200px;
-                  height: 80px;
-                  background: linear-gradient(135deg, #1A6B6B 0%, #2D7D7D 100%);
-                  border: 2px solid #8B4513;
-                  border-radius: 12px;
-                  box-shadow:
-                    0 6px 12px rgba(0,0,0,0.3),
-                    inset 0 2px 4px rgba(0,0,0,0.2);
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  z-index: 10;
-                }
-
-                .player-position {
-                  position: absolute;
-                  transform: translate(-50%, -50%);
-                  z-index: 20;
-                  transition: all 0.3s ease;
-                }
-
-                .player-position:hover {
-                  transform: translate(-50%, -50%) scale(1.05);
-                }
-
-                .player-card {
-                  background: rgba(0, 212, 236, 0.43);
-                  border: 2px solid #00bfffff;
-                  border-radius: 8px;
-                  padding: 8px 12px;
-                  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                  min-width: 80px;
-                  text-align: center;
-                }
-
-                .player-card.current-player {
-                  border-color: #3b82f6;
-                  box-shadow: 
-                    0 4px 8px rgba(0,0,0,0.2),
-                    0 0 0 3px rgba(59, 130, 246, 0.3);
-                  animation: pulse-glow 2s ease-in-out infinite;
-                }
-
-                .player-card.folded {
-                  opacity: 0.5;
-                  border-color: #ef4444;
-                  background: rgba(239, 68, 68, 0.1);
-                }
-
-                @keyframes pulse-glow {
-                  0%, 100% {
-                    box-shadow: 
-                      0 4px 8px rgba(0,0,0,0.2),
-                      0 0 0 3px rgba(59, 130, 246, 0.3);
-                  }
-                  50% {
-                    box-shadow: 
-                      0 4px 8px rgba(0,0,0,0.2),
-                      0 0 0 3px rgba(59, 130, 246, 0.6);
-                  }
-                }
-
-                @media (max-width: 768px) {
-                  .poker-table {
-                    width: 480px;
-                    height: 288px;
-                  }
-                  
-                  .community-cards-center {
-                    width: 160px;
-                    height: 64px;
-                  }
-                }
-
-                @media (max-width: 640px) {
-                  .poker-table {
-                    width: 360px;
-                    height: 216px;
-                    border-width: 15px;
-                  }
-                  
-                  .poker-table::before {
-                    top: -15px;
-                    left: -15px;
-                    right: -15px;
-                    bottom: -15px;
-                  }
-                  
-                  .community-cards-center {
-                    width: 120px;
-                    height: 48px;
-                  }
-                  
-                  .player-card {
-                    padding: 6px 8px;
-                    min-width: 60px;
-                  }
-                }
-              `}</style>
-
-              <div className="relative w-full overflow-x-auto flex justify-center">
-                <div className="poker-table">
-                  <img src="/new_table.png" alt="img" />
-
-
-                  {/* Wood grain texture */}
-                  {/* <div className="wood-grain"></div>
-                   */}
-                  {/* Felt texture */}
-                  {/* <div className="felt-texture"></div> */}
-
-                  {/* Center area for community cards */}
-                  <div className="community-cards-center">
-                    <div className="text-amber-200 text-xs font-bold text-center leading-tight">
-                      COMMUNITY CARDS<br />
-                      <span className="text-amber-300 text-sm">♠ ♥ ♦ ♣</span>
+          <CardContent>
+            <div className="flex flex-col items-center gap-4">
+              <PlayerCards cards={gameState.communityCards} size="medium" />
+              <div className="flex flex-wrap justify-center gap-4 w-full">
+                {gameState.players.map((player, index) => {
+                  const isCurrentPlayer = index === gameState.currentAction.playerIndex
+                  return (
+                    <div
+                      key={player.position}
+                      className={`p-2 rounded border text-center w-24 ${
+                        player.isFolded ? 'opacity-50' : ''
+                      } ${isCurrentPlayer ? 'border-blue-500' : 'border-slate-200'}`}
+                    >
+                      <div className="text-xs font-bold">{player.position}</div>
+                      <div className="text-xs">Stack: ${player.stack}</div>
+                      {player.currentBet > 0 && (
+                        <div className="text-xs">Bet: ${player.currentBet}</div>
+                      )}
+                      {player.position === heroPosition && holeCards.length > 0 && (
+                        <PlayerCards cards={holeCards} />
+                      )}
                     </div>
-                  </div>
-
-                                    {/* Community cards display (flop/turn/rive r) */}
-                  <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-1 z-15">
-                    {[0,1,2,3,4].map((i) => {
-                      const c = gameState.communityCards[i];
-                      return c ? (
-                        // Smaller size + disable hover scaling for board cards
-                  <PlayingCard key={i} code={c} className="w-10 h-16 hover:scale-100" />
-                      ) : (
-                        // Empty slot placeholder until that street is dealt
-                  <div
-                          key={i}
-                          className="w-12 h-18 rounded-md border border-dashed border-gray-400 bg-gray-100
-                                    flex items-center justify-center text-xs text-gray-500"
-                  >
-                          ?
-                  </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Pot display */}
-                  <div className="absolute top-2/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-  <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-600 
-                  flex items-center justify-center border-4 border-amber-700 shadow-xl">
-    
-    {/* Glow effect */}
-    <div className="absolute inset-0 rounded-full bg-amber-400 opacity-30 blur-xl animate-pulse"></div>
-
-    {/* Inner chip ring */}
-    <div className="absolute inset-1 rounded-full border-2 border-amber-200"></div>
-
-    {/* Pot text */}
-    <div className="relative text-center">
-      <div className="text-[10px] font-extrabold text-amber-900 tracking-wider drop-shadow-md">
-        POT
-      </div>
-      <div className="text-sm font-black text-amber-900 drop-shadow-md">
-        ${gameState.pot.main}
-      </div>
-    </div>
-  </div>
-</div>
-
-
-                  {/* Player positions around oval table */}
-                  {gameState.players.map((player, index) => {
-                    const isCurrentPlayer = index === gameState.currentAction.playerIndex
-                    
-                    // Calculate positions around oval table
-                    let x, y
-                    const totalPlayers = gameState.players.length
-                    const angleStep = (2 * Math.PI) / totalPlayers
-                    const angle = index * angleStep - Math.PI / 2 // Start from top
-                    
-                    // Oval positioning with different radii for x and y
-                    const radiusX = 260 // Horizontal radius
-                    const radiusY = 140 // Vertical radius
-                    
-                    x = 50 + (radiusX * Math.cos(angle)) / 6 // Convert to percentage and scale
-                    y = 50 + (radiusY * Math.sin(angle)) / 3.6 // Convert to percentage and scale
-
-                    return (
-                      <div 
-                        key={player.position} 
-                        className="player-position"
-                        style={{ 
-                          left: `${x}%`, 
-                          top: `${y}%`
-                        }}
-                      >
-                        {/* //div for imge  */}
-                        <div className="player-img flex justify-center">
-                          <img
-                            src={playerAvatar}
-                            alt="Player avatar"
-                            className="w-16 h-18"
-                          />
-                        </div>
-
-
-                        <div className={`player-card ${
-                          player.isFolded ? 'folded' : 
-                          isCurrentPlayer ? 'current-player' : ''
-                        }`}>
-                          <div className="text-xs font-bold">{player.position}</div>
-
-
-                          {/* chips */}
-                      <div className="flex items-center gap-1 flex justify-center">
-                        <div className="player_chips">
-                          <img
-                            src={playerChips}
-                            alt="Player chip"
-                            className="w-5 h-5"
-                          />
-                        </div>
-                        <div className="text-xs">${player.stack}</div>
-                      </div>
-
-
-                      
-                          
-                          {player.currentBet > 0 && (
-                            <div className="text-xs text-white-600">Bet: ${player.currentBet}</div>
-                          )}
-                          {(() => {
-                            console.log('HandRecorder: Checking hole cards for player:', player.position);
-                            console.log('HandRecorder: Hero position:', heroPosition);
-                            console.log('HandRecorder: Hole cards:', holeCards);
-                            console.log('HandRecorder: Should show cards:', player.position === heroPosition && holeCards.length > 0);
-                            return null;
-                          })()}
-                          {player.position === heroPosition && holeCards.length > 0 && (
-                           <div className="flex gap-1 mt-1 justify-center">
-  {holeCards.map((card, index) => (
-    <PlayingCard key={index} code={card} />
-  ))}
-</div>
-                          )}
-                        </div>
-
-                      </div>
-                    )
-                  })}
-                </div>
+                  )
+                })}
               </div>
-            </CardContent>
+            </div>
+          </CardContent>
           </Card>
 
           {currentPlayer && gameState.gameStage !== 'showdown-hands' && gameState.gameStage !== 'complete' && (
@@ -963,11 +654,11 @@ export function HandRecorder() {
                         <div className="font-medium">{player.name} ({player.position})</div>
                         <div className="flex gap-2">
                           {[0,1].map(i => (
-                            player.holeCards && player.holeCards[i] ? (
-                              <div key={i} onClick={() => openCardSelector('opponent', index)} className="cursor-pointer">
-                                <PlayingCard code={player.holeCards[i]} />
-                              </div>
-                            ) : (
+                              player.holeCards && player.holeCards[i] ? (
+                                <div key={i} onClick={() => openCardSelector('opponent', index)} className="cursor-pointer">
+                                  <PlayingCard card={player.holeCards[i]} />
+                                </div>
+                              ) : (
                               <div key={i} onClick={() => openCardSelector('opponent', index)} className="w-12 h-20 border-2 border-dashed rounded flex items-center justify-center text-gray-400 cursor-pointer">+</div>
                             )
                           ))}
