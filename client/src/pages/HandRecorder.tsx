@@ -60,7 +60,8 @@ export function HandRecorder() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showCardSelector, setShowCardSelector] = useState(false)
-  const [cardSelectorType, setCardSelectorType] = useState<'hole' | 'flop' | 'turn' | 'river'>('hole')
+  const [cardSelectorType, setCardSelectorType] = useState<'hole' | 'flop' | 'turn' | 'river' | 'player'>('hole')
+  const [selectedPlayerIndex, setSelectedPlayerIndex] = useState<number | null>(null)
   const [betAmount, setBetAmount] = useState('')
   const [heroPosition, setHeroPosition] = useState('BB')
   const [holeCards, setHoleCards] = useState<string[]>([])
@@ -286,6 +287,16 @@ export function HandRecorder() {
     return -1
   }
 
+  const getNextPlayerNeedingCards = (startIndex: number): number => {
+    for (let i = startIndex + 1; i < gameState.players.length; i++) {
+      const player = gameState.players[i]
+      if (!player.holeCards || player.holeCards.length < 2) {
+        return i
+      }
+    }
+    return -1
+  }
+
   const isRoundComplete = (state: GameState): boolean => {
     const activePlayers = state.players.filter(p => p.isActive && !p.isFolded)
     if (activePlayers.length <= 1) return true
@@ -323,6 +334,13 @@ export function HandRecorder() {
         break
       case 'river':
         state.gameStage = 'showdown'
+        const firstIndex = state.players.findIndex(p => !p.holeCards || p.holeCards.length < 2)
+        if (firstIndex !== -1) {
+          setSelectedPlayerIndex(firstIndex)
+          openCardSelector('player')
+        } else {
+          state.gameStage = 'complete'
+        }
         break
     }
 
@@ -342,7 +360,7 @@ export function HandRecorder() {
     }
   }
 
-  const openCardSelector = (type: 'hole' | 'flop' | 'turn' | 'river') => {
+  const openCardSelector = (type: 'hole' | 'flop' | 'turn' | 'river' | 'player') => {
     setCardSelectorType(type)
     setShowCardSelector(true)
   }
@@ -374,6 +392,22 @@ export function HandRecorder() {
             ...prev,
             communityCards: [...prev.communityCards, ...cards]
           }))
+        }
+        break
+      case 'player':
+        if (selectedPlayerIndex !== null && cards.length === 2) {
+          setGameState(prev => {
+            const players = [...prev.players]
+            players[selectedPlayerIndex].holeCards = cards
+            return { ...prev, players }
+          })
+          const nextIndex = getNextPlayerNeedingCards(selectedPlayerIndex)
+          if (nextIndex !== -1) {
+            setSelectedPlayerIndex(nextIndex)
+            setTimeout(() => openCardSelector('player'), 0)
+          } else {
+            setGameState(prev => ({ ...prev, gameStage: 'complete' }))
+          }
         }
         break
     }
@@ -449,6 +483,7 @@ export function HandRecorder() {
       case 'flop': return 3
       case 'turn':
       case 'river': return 1
+      case 'player': return 2
       default: return 2
     }
   }
@@ -875,12 +910,12 @@ export function HandRecorder() {
                             console.log('HandRecorder: Should show cards:', player.position === heroPosition && holeCards.length > 0);
                             return null;
                           })()}
-                          {player.position === heroPosition && holeCards.length > 0 && (
-                           <div className="flex gap-1 mt-1 justify-center">
-  {holeCards.map((card, index) => (
-    <PlayingCard key={index} code={card} />
-  ))}
-</div>
+                          {player.holeCards && player.holeCards.length === 2 && (
+                            <div className="flex gap-1 mt-1 justify-center">
+                              {player.holeCards.map((card, index) => (
+                                <PlayingCard key={index} code={card} />
+                              ))}
+                            </div>
                           )}
                         </div>
 
@@ -892,7 +927,7 @@ export function HandRecorder() {
             </CardContent>
           </Card>
 
-          {currentPlayer && gameState.gameStage !== 'showdown' && (
+          {currentPlayer && gameState.gameStage !== 'showdown' && gameState.gameStage !== 'complete' && (
             <Card>
               <CardHeader>
                 <CardTitle>Player Action: {currentPlayer.name} ({currentPlayer.position})</CardTitle>
@@ -951,7 +986,7 @@ export function HandRecorder() {
         </div>
       )}
 
-      {(gameState.gameStage === 'showdown' || gameState.gameStage === 'complete') && (
+      {gameState.gameStage === 'complete' && (
         <Card>
           <CardHeader>
             <CardTitle>Hand Complete</CardTitle>
@@ -976,8 +1011,19 @@ export function HandRecorder() {
 
       {showCardSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          {cardSelectorType === 'player' && selectedPlayerIndex !== null && (
+            <div className="absolute top-4 text-white text-xl font-bold">
+              {gameState.players[selectedPlayerIndex].name} ({gameState.players[selectedPlayerIndex].position})
+            </div>
+          )}
           <CardSelector
-            selectedCards={cardSelectorType === 'hole' ? holeCards : []}
+            selectedCards={
+              cardSelectorType === 'hole'
+                ? holeCards
+                : cardSelectorType === 'player' && selectedPlayerIndex !== null
+                  ? gameState.players[selectedPlayerIndex].holeCards || []
+                  : []
+            }
             onCardsChange={handleCardsSelected}
             maxCards={getMaxCards()}
             onClose={() => setShowCardSelector(false)}
