@@ -1149,13 +1149,26 @@ export function HandRecorder() {
                 {gameState.players.map(player => {
                   const winner = winners.find(w => w.playerId === player.position)
                   return (
-                    <div key={player.position} className="flex justify-between text-sm">
-                      <span>{player.name} ({player.position}) - {player.holeCards?.join(' ') || '—'}</span>
-                      {winner ? (
-                        <span className="text-green-600 font-semibold">Won ${winner.amount} ({winner.hand})</span>
-                      ) : (
-                        <span className="text-slate-500">Lost</span>
-                      )}
+                    <div key={player.position} className="text-sm space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>{player.name} ({player.position}) - {player.holeCards?.join(' ') || '—'}</span>
+                        {winner ? (
+                          <span className="text-green-600 font-semibold">Won ${winner.amount} ({winner.hand})</span>
+                        ) : (
+                          <span className="text-slate-500">Lost</span>
+                        )}
+                      </div>
+                      <div className="ml-4 text-xs text-gray-500">
+                        {(['preflop', 'flop', 'turn', 'river'] as GameStage[]).map(round => {
+                          const actions = player.actions.filter(a => a.round === round)
+                          if (actions.length === 0) return null
+                          return (
+                            <div key={round}>
+                              {round.charAt(0).toUpperCase() + round.slice(1)}: {actions.map(a => `${a.action}${a.amount > 0 ? ' $' + a.amount : ''}`).join(', ')}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   )
                 })}
