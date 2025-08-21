@@ -22,7 +22,6 @@ type GameStage =
   | 'flop'
   | 'turn'
   | 'river'
-  | 'showdown'
   | 'showdown-hands'
   | 'complete'
 type ActionType = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'all-in'
@@ -177,10 +176,6 @@ export function HandRecorder() {
   }
 
   const getValidActions = (player: Player): ActionType[] => {
-    if (['showdown', 'showdown-hands', 'complete'].includes(gameState.gameStage)) {
-      return []
-    }
-
     const actions: ActionType[] = ['fold']
     const callAmount = gameState.currentBet - player.currentBet
 
@@ -330,14 +325,10 @@ export function HandRecorder() {
         openCardSelector('river')
         break
       case 'river':
-        state.gameStage = 'showdown'
-        break
-      case 'showdown':
         state.gameStage = 'showdown-hands'
         break
     }
-
-    if (!['complete', 'showdown', 'showdown-hands'].includes(state.gameStage)) {
+    if (state.gameStage !== 'complete' && state.gameStage !== 'showdown-hands') {
       const dealerIndex = state.players.findIndex(p => p.position === 'BTN')
       for (let i = 1; i < state.players.length; i++) {
         const nextIndex = (dealerIndex + i) % state.players.length
@@ -960,23 +951,6 @@ export function HandRecorder() {
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {gameState.gameStage === 'showdown' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Showdown</CardTitle>
-                <CardDescription>Record opponents' hole cards</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={() => setGameState(prev => ({ ...prev, gameStage: 'showdown-hands' }))}
-                  className="w-full"
-                >
-                  Record Opponent Hands
-                </Button>
               </CardContent>
             </Card>
           )}
