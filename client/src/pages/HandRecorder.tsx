@@ -1158,17 +1158,32 @@ export function HandRecorder() {
                           <span className="text-slate-500">Lost</span>
                         )}
                       </div>
-                      <div className="ml-4 text-xs text-gray-500">
-                        {(['preflop', 'flop', 'turn', 'river'] as GameStage[]).map(round => {
-                          const actions = player.actions.filter(a => a.round === round)
-                          if (actions.length === 0) return null
-                          return (
-                            <div key={round}>
-                              {round.charAt(0).toUpperCase() + round.slice(1)}: {actions.map(a => `${a.action}${a.amount > 0 ? ' $' + a.amount : ''}`).join(', ')}
-                            </div>
-                          )
-                        })}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="space-y-2 text-sm">
+                {(['preflop', 'flop', 'turn', 'river'] as GameStage[]).map(round => {
+                  const roundActions = gameState.players
+                    .map(player => {
+                      const actions = player.actions.filter(a => a.round === round)
+                      if (actions.length === 0) return null
+                      return { player, actions }
+                    })
+                    .filter(Boolean) as Array<{ player: Player; actions: Player['actions'] }>
+                  if (roundActions.length === 0) return null
+                  return (
+                    <div key={round}>
+                      <div className="font-semibold">
+                        {round.charAt(0).toUpperCase() + round.slice(1)}
                       </div>
+                      <ul className="ml-4 text-xs text-gray-500 space-y-0.5">
+                        {roundActions.map(({ player, actions }) => (
+                          <li key={player.position}>
+                            {player.name} ({player.position}): {actions.map(a => `${a.action}${a.amount > 0 ? ' $' + a.amount : ''}`).join(', ')}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )
                 })}
