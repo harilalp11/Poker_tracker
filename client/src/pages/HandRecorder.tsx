@@ -177,6 +177,10 @@ export function HandRecorder() {
   }
 
   const getValidActions = (player: Player): ActionType[] => {
+    if (['showdown', 'showdown-hands', 'complete'].includes(gameState.gameStage)) {
+      return []
+    }
+
     const actions: ActionType[] = ['fold']
     const callAmount = gameState.currentBet - player.currentBet
 
@@ -581,9 +585,7 @@ export function HandRecorder() {
               <CardDescription>
                 {gameState.gameStage === 'showdown-hands'
                   ? "Select opponents' hole cards"
-                  : gameState.gameStage === 'showdown'
-                    ? 'Showdown'
-                    : `Current Action: ${currentPlayer?.name} (${currentPlayer?.position})`}
+                  : `Current Action: ${currentPlayer?.name} (${currentPlayer?.position})`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -922,7 +924,7 @@ export function HandRecorder() {
             </CardContent>
           </Card>
 
-        {currentPlayer && !['showdown', 'showdown-hands', 'complete'].includes(gameState.gameStage) && (
+        {currentPlayer && gameState.gameStage !== 'showdown-hands' && gameState.gameStage !== 'complete' && (
             <Card>
               <CardHeader>
                 <CardTitle>Player Action: {currentPlayer.name} ({currentPlayer.position})</CardTitle>
