@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/useToast'
 import { getSessionById, createHand } from '@/api/sessions'
 import { CardSelector } from '@/components/hand-recorder/CardSelector'
-import { PlayerCards } from '@/components/PlayerCards'
 import { ArrowLeft, Save, Play, RotateCcw } from 'lucide-react'
 import { PlayingCard } from "./PlayingCard"
 import playerAvatar from "./player_id.png";
@@ -60,11 +59,12 @@ export function HandRecorder() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showCardSelector, setShowCardSelector] = useState(false)
-  const [cardSelectorType, setCardSelectorType] = useState<'hole' | 'flop' | 'turn' | 'river'>('hole')
+  const [cardSelectorType, setCardSelectorType] = useState<'hole' | 'flop' | 'turn' | 'river' | 'player'>('hole')
+  const [selectedPlayerIndex, setSelectedPlayerIndex] = useState<number | null>(null)
   const [betAmount, setBetAmount] = useState('')
   const [heroPosition, setHeroPosition] = useState('BB')
   const [holeCards, setHoleCards] = useState<string[]>([])
-  const [tableSize, setTableSize] = useState('6-max')
+  const tableSize = '6-max'
   const [smallBlind, setSmallBlind] = useState(1)
   const [bigBlind, setBigBlind] = useState(2)
 
@@ -81,11 +81,7 @@ export function HandRecorder() {
     bigBlind: 2
   })
 
-  const [handResult, setHandResult] = useState<'win' | 'loss' | 'split'>('loss')
-  const [amountWon, setAmountWon] = useState(0)
-  const [showdown, setShowdown] = useState(false)
-  const [winners, setWinners] = useState<Array<{playerId: string, playerName: string, amount: number}>>([])
-  const [showWinnerSelection, setShowWinnerSelection] = useState(false)
+  const [winners, setWinners] = useState<Array<{playerId: string, playerName: string, amount: number, hand: string}>>([])
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -99,7 +95,7 @@ export function HandRecorder() {
           if (!isNaN(sb)) setSmallBlind(sb)
           if (!isNaN(bb)) setBigBlind(bb)
         }
-      } catch (error) {
+      } catch {
         toast({ title: "Error", description: "Failed to load session", variant: "destructive" })
         navigate('/sessions')
       } finally {
@@ -217,15 +213,16 @@ export function HandRecorder() {
         break
       case 'check':
         break
-      case 'call':
+      case 'call': {
         const callAmount = newGameState.currentBet - currentPlayer.currentBet
         currentPlayer.stack -= callAmount
         currentPlayer.currentBet = newGameState.currentBet
         currentPlayer.totalInvested += callAmount
         newGameState.pot.main += callAmount
         break
+      }
       case 'bet':
-      case 'raise':
+      case 'raise': {
         const betAmount = amount
         currentPlayer.stack -= betAmount
         currentPlayer.currentBet += betAmount
@@ -240,7 +237,8 @@ export function HandRecorder() {
           })
         }
         break
-      case 'all-in':
+      }
+      case 'all-in': {
         const allInAmount = currentPlayer.stack
         currentPlayer.stack = 0
         currentPlayer.currentBet += allInAmount
@@ -256,6 +254,7 @@ export function HandRecorder() {
           })
         }
         break
+      }
     }
 
     currentPlayer.hasActed = true
@@ -281,6 +280,16 @@ export function HandRecorder() {
       const player = state.players[nextIndex]
       if (player.isActive && !player.isFolded && !player.isAllIn && !player.hasActed) {
         return nextIndex
+      }
+    }
+    return -1
+  }
+
+  const getNextPlayerNeedingCards = (startIndex: number): number => {
+    for (let i = startIndex + 1; i < gameState.players.length; i++) {
+      const player = gameState.players[i]
+      if (!player.holeCards || player.holeCards.length < 2) {
+        return i
       }
     }
     return -1
@@ -321,9 +330,17 @@ export function HandRecorder() {
         state.gameStage = 'river'
         openCardSelector('river')
         break
-      case 'river':
+      case 'river': {
         state.gameStage = 'showdown'
+        const firstIndex = state.players.findIndex(p => !p.holeCards || p.holeCards.length < 2)
+        if (firstIndex !== -1) {
+          setSelectedPlayerIndex(firstIndex)
+          openCardSelector('player')
+        } else {
+          state.gameStage = 'complete'
+        }
         break
+      }
     }
 
     if (state.gameStage !== 'complete' && state.gameStage !== 'showdown') {
@@ -342,10 +359,147 @@ export function HandRecorder() {
     }
   }
 
-  const openCardSelector = (type: 'hole' | 'flop' | 'turn' | 'river') => {
+  const openCardSelector = (type: 'hole' | 'flop' | 'turn' | 'river' | 'player') => {
     setCardSelectorType(type)
     setShowCardSelector(true)
   }
+
+  interface ParsedCard { rank: number; suit: string }
+
+  const parseCard = (card: string): ParsedCard => {
+    const suit = card.slice(-1)
+    const rankStr = card.slice(0, -1)
+    const rankMap: Record<string, number> = {
+      '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+      '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
+    }
+    return { rank: rankMap[rankStr], suit }
+  }
+
+  interface HandValue {
+    category: number
+    ranks: number[]
+    name: string
+  }
+
+  const evaluate5CardHand = (cards: ParsedCard[]): HandValue => {
+    const ranks = cards.map(c => c.rank).sort((a, b) => b - a)
+    const suits = cards.map(c => c.suit)
+
+    const rankCounts: Record<number, number> = {}
+    ranks.forEach(r => { rankCounts[r] = (rankCounts[r] || 0) + 1 })
+    const rankGroups = Object.entries(rankCounts)
+      .map(([rank, count]) => ({ rank: Number(rank), count }))
+      .sort((a, b) => b.count - a.count || b.rank - a.rank)
+
+    const isFlush = suits.every(s => s === suits[0])
+
+    const uniqueRanks = Array.from(new Set(ranks))
+    let isStraight = false
+    let straightHigh = uniqueRanks[0]
+    if (uniqueRanks.length === 5) {
+      if (uniqueRanks[0] - uniqueRanks[4] === 4) {
+        isStraight = true
+      } else if (JSON.stringify(uniqueRanks) === JSON.stringify([14, 5, 4, 3, 2])) {
+        isStraight = true
+        straightHigh = 5
+      }
+    }
+
+    if (isStraight && isFlush) {
+      return { category: 8, ranks: [straightHigh], name: 'Straight Flush' }
+    }
+    if (rankGroups[0].count === 4) {
+      return { category: 7, ranks: [rankGroups[0].rank, rankGroups[1].rank], name: 'Four of a Kind' }
+    }
+    if (rankGroups[0].count === 3 && rankGroups[1].count === 2) {
+      return { category: 6, ranks: [rankGroups[0].rank, rankGroups[1].rank], name: 'Full House' }
+    }
+    if (isFlush) {
+      return { category: 5, ranks, name: 'Flush' }
+    }
+    if (isStraight) {
+      return { category: 4, ranks: [straightHigh], name: 'Straight' }
+    }
+    if (rankGroups[0].count === 3) {
+      const kickers = rankGroups.slice(1).map(g => g.rank)
+      return { category: 3, ranks: [rankGroups[0].rank, ...kickers], name: 'Three of a Kind' }
+    }
+    if (rankGroups[0].count === 2 && rankGroups[1].count === 2) {
+      const pairRanks = rankGroups.slice(0, 2).map(g => g.rank)
+      const kicker = rankGroups[2].rank
+      return { category: 2, ranks: [...pairRanks, kicker], name: 'Two Pair' }
+    }
+    if (rankGroups[0].count === 2) {
+      const kickers = rankGroups.slice(1).map(g => g.rank)
+      return { category: 1, ranks: [rankGroups[0].rank, ...kickers], name: 'One Pair' }
+    }
+    return { category: 0, ranks, name: 'High Card' }
+  }
+
+  const compareHandValues = (a: HandValue, b: HandValue): number => {
+    if (a.category !== b.category) return a.category - b.category
+    for (let i = 0; i < a.ranks.length; i++) {
+      if ((a.ranks[i] || 0) !== (b.ranks[i] || 0)) {
+        return (a.ranks[i] || 0) - (b.ranks[i] || 0)
+      }
+    }
+    return 0
+  }
+
+  const getBestHandValue = (cards: ParsedCard[]): HandValue => {
+    let best: HandValue | null = null
+    const n = cards.length
+    for (let i = 0; i < n - 4; i++)
+      for (let j = i + 1; j < n - 3; j++)
+        for (let k = j + 1; k < n - 2; k++)
+          for (let l = k + 1; l < n - 1; l++)
+            for (let m = l + 1; m < n; m++) {
+              const combo = [cards[i], cards[j], cards[k], cards[l], cards[m]]
+              const value = evaluate5CardHand(combo)
+              if (!best || compareHandValues(value, best) > 0) {
+                best = value
+              }
+            }
+    return best as HandValue
+  }
+
+  const determineWinners = (state: GameState) => {
+    const board = state.communityCards.map(parseCard)
+    const activePlayers = state.players.filter(p => !p.isFolded && p.holeCards && p.holeCards.length === 2)
+    const results = activePlayers.map(p => {
+      const cards = [...p.holeCards!.map(parseCard), ...board]
+      return { player: p, value: getBestHandValue(cards) }
+    })
+
+    let best = results[0]?.value
+    if (!best) return
+    let winnerResults = [results[0]]
+    for (let i = 1; i < results.length; i++) {
+      const cmp = compareHandValues(results[i].value, best)
+      if (cmp > 0) {
+        best = results[i].value
+        winnerResults = [results[i]]
+      } else if (cmp === 0) {
+        winnerResults.push(results[i])
+      }
+    }
+
+    const winAmount = state.pot.main / winnerResults.length
+    setWinners(winnerResults.map(r => ({
+      playerId: r.player.position,
+      playerName: r.player.name,
+      amount: parseFloat(winAmount.toFixed(2)),
+      hand: r.value.name
+    })))
+  }
+
+  useEffect(() => {
+    if (gameState.gameStage === 'complete') {
+      determineWinners(gameState)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.gameStage])
 
   const handleCardsSelected = (cards: string[]) => {
     switch (cardSelectorType) {
@@ -376,6 +530,23 @@ export function HandRecorder() {
           }))
         }
         break
+      case 'player': {
+        if (selectedPlayerIndex !== null && cards.length === 2) {
+          setGameState(prev => {
+            const players = [...prev.players]
+            players[selectedPlayerIndex].holeCards = cards
+            return { ...prev, players }
+          })
+          const nextIndex = getNextPlayerNeedingCards(selectedPlayerIndex)
+          if (nextIndex !== -1) {
+            setSelectedPlayerIndex(nextIndex)
+            setTimeout(() => openCardSelector('player'), 0)
+          } else {
+            setGameState(prev => ({ ...prev, gameStage: 'complete' }))
+          }
+        }
+        break
+      }
     }
     setShowCardSelector(false)
   }
@@ -421,6 +592,7 @@ export function HandRecorder() {
     })
     setHoleCards([])
     setBetAmount('')
+    setWinners([])
   }
 
   if (loading) {
@@ -449,6 +621,7 @@ export function HandRecorder() {
       case 'flop': return 3
       case 'turn':
       case 'river': return 1
+      case 'player': return 2
       default: return 2
     }
   }
@@ -812,17 +985,16 @@ export function HandRecorder() {
                     const isCurrentPlayer = index === gameState.currentAction.playerIndex
                     
                     // Calculate positions around oval table
-                    let x, y
                     const totalPlayers = gameState.players.length
                     const angleStep = (2 * Math.PI) / totalPlayers
                     const angle = index * angleStep - Math.PI / 2 // Start from top
-                    
+
                     // Oval positioning with different radii for x and y
                     const radiusX = 260 // Horizontal radius
                     const radiusY = 140 // Vertical radius
-                    
-                    x = 50 + (radiusX * Math.cos(angle)) / 6 // Convert to percentage and scale
-                    y = 50 + (radiusY * Math.sin(angle)) / 3.6 // Convert to percentage and scale
+
+                    const x = 50 + (radiusX * Math.cos(angle)) / 6 // Convert to percentage and scale
+                    const y = 50 + (radiusY * Math.sin(angle)) / 3.6 // Convert to percentage and scale
 
                     return (
                       <div 
@@ -843,11 +1015,14 @@ export function HandRecorder() {
                         </div>
 
 
-                        <div className={`player-card ${
-                          player.isFolded ? 'folded' : 
-                          isCurrentPlayer ? 'current-player' : ''
-                        }`}>
-                          <div className="text-xs font-bold">{player.position}</div>
+                        {(() => {
+                          const winner = winners.find(w => w.playerId === player.position)
+                          return (
+                            <div className={`player-card ${
+                              player.isFolded ? 'folded' :
+                              isCurrentPlayer ? 'current-player' : ''
+                            } ${winner ? 'ring-2 ring-green-400' : ''}`}>
+                              <div className="text-xs font-bold">{player.position}</div>
 
 
                           {/* chips */}
@@ -875,14 +1050,21 @@ export function HandRecorder() {
                             console.log('HandRecorder: Should show cards:', player.position === heroPosition && holeCards.length > 0);
                             return null;
                           })()}
-                          {player.position === heroPosition && holeCards.length > 0 && (
-                           <div className="flex gap-1 mt-1 justify-center">
-  {holeCards.map((card, index) => (
-    <PlayingCard key={index} code={card} />
-  ))}
-</div>
-                          )}
-                        </div>
+                              {player.holeCards && player.holeCards.length === 2 && (
+                                <div className="flex gap-1 mt-1 justify-center">
+                                  {player.holeCards.map((card, index) => (
+                                    <PlayingCard key={index} code={card} />
+                                  ))}
+                                </div>
+                              )}
+                              {winner && (
+                                <div className="text-xs text-green-600 font-bold mt-1">
+                                  Won ${winner.amount}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
 
                       </div>
                     )
@@ -892,7 +1074,7 @@ export function HandRecorder() {
             </CardContent>
           </Card>
 
-          {currentPlayer && gameState.gameStage !== 'showdown' && (
+          {currentPlayer && gameState.gameStage !== 'showdown' && gameState.gameStage !== 'complete' && (
             <Card>
               <CardHeader>
                 <CardTitle>Player Action: {currentPlayer.name} ({currentPlayer.position})</CardTitle>
@@ -951,7 +1133,7 @@ export function HandRecorder() {
         </div>
       )}
 
-      {(gameState.gameStage === 'showdown' || gameState.gameStage === 'complete') && (
+      {gameState.gameStage === 'complete' && (
         <Card>
           <CardHeader>
             <CardTitle>Hand Complete</CardTitle>
@@ -963,11 +1145,54 @@ export function HandRecorder() {
                 <p className="text-lg font-semibold">Final Pot: ${gameState.pot.main}</p>
                 <p className="text-sm text-gray-600">Community Cards: {gameState.communityCards.join(', ')}</p>
               </div>
+              <div className="space-y-1">
+                {gameState.players.map(player => {
+                  const winner = winners.find(w => w.playerId === player.position)
+                  return (
+                    <div key={player.position} className="text-sm space-y-0.5">
+                      <div className="flex justify-between">
+                        <span>{player.name} ({player.position}) - {player.holeCards?.join(' ') || '—'}</span>
+                        {winner ? (
+                          <span className="text-green-600 font-semibold">Won ${winner.amount} ({winner.hand})</span>
+                        ) : (
+                          <span className="text-slate-500">Lost</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="space-y-2 text-sm">
+                {(['preflop', 'flop', 'turn', 'river'] as GameStage[]).map(round => {
+                  const roundActions = gameState.players
+                    .map(player => {
+                      const actions = player.actions.filter(a => a.round === round)
+                      if (actions.length === 0) return null
+                      return { player, actions }
+                    })
+                    .filter(Boolean) as Array<{ player: Player; actions: Player['actions'] }>
+                  if (roundActions.length === 0) return null
+                  return (
+                    <div key={round}>
+                      <div className="font-semibold">
+                        {round.charAt(0).toUpperCase() + round.slice(1)}
+                      </div>
+                      <ul className="ml-4 text-xs text-gray-500 space-y-0.5">
+                        {roundActions.map(({ player, actions }) => (
+                          <li key={player.position}>
+                            {player.name} ({player.position}): {actions.map(a => `${a.action}${a.amount > 0 ? ' $' + a.amount : ''}`).join(', ')}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
               <div className="flex justify-center gap-4">
                 <Button variant="outline" onClick={resetHand}>Record Another Hand</Button>
-                <Button onClick={handleFinalSave} className="bg-green-600 hover:bg-green-700 text-white"></Button>
+                <Button onClick={handleFinalSave} className="bg-green-600 hover:bg-green-700 text-white">
                   <Save className="h-4 w-4 mr-2" />Save Hand
-                  
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -976,8 +1201,19 @@ export function HandRecorder() {
 
       {showCardSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          {cardSelectorType === 'player' && selectedPlayerIndex !== null && (
+            <div className="absolute top-4 text-white text-xl font-bold">
+              {gameState.players[selectedPlayerIndex].name} ({gameState.players[selectedPlayerIndex].position})
+            </div>
+          )}
           <CardSelector
-            selectedCards={cardSelectorType === 'hole' ? holeCards : []}
+            selectedCards={
+              cardSelectorType === 'hole'
+                ? holeCards
+                : cardSelectorType === 'player' && selectedPlayerIndex !== null
+                  ? gameState.players[selectedPlayerIndex].holeCards || []
+                  : []
+            }
             onCardsChange={handleCardsSelected}
             maxCards={getMaxCards()}
             onClose={() => setShowCardSelector(false)}

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/useToast'
 import { getHandsBySession, deleteHand } from '@/api/sessions'
-import { Trash2, Edit, Star, Clock } from 'lucide-react'
+import { Trash2, Star } from 'lucide-react'
 
 interface HandsListProps {
   sessionId: string
@@ -25,6 +25,7 @@ interface HandsListProps {
 export function HandsList({ sessionId, onHandsChange }: HandsListProps) {
   const [hands, setHands] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedHands, setExpandedHands] = useState<Record<string, boolean>>({})
   const { toast } = useToast()
 
   const fetchHands = async () => {
@@ -133,6 +134,10 @@ export function HandsList({ sessionId, onHandsChange }: HandsListProps) {
     }
   }
 
+  const toggleHand = (handId: string) => {
+    setExpandedHands(prev => ({ ...prev, [handId]: !prev[handId] }))
+  }
+
   const renderStars = (importance: number) => {
     const stars = []
     const validImportance = typeof importance === 'number' ? importance : 1
@@ -214,6 +219,9 @@ export function HandsList({ sessionId, onHandsChange }: HandsListProps) {
                       }`}>
                         {formatCurrency(hand.result || 0)}
                       </span>
+                      <Button variant="ghost" size="sm" onClick={() => toggleHand(hand._id)}>
+                        {expandedHands[hand._id] ? 'Hide' : 'View more'}
+                      </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" size="sm">
@@ -315,6 +323,50 @@ export function HandsList({ sessionId, onHandsChange }: HandsListProps) {
                       <p className="text-sm text-slate-600 dark:text-slate-400">
                         <span className="font-medium">Notes:</span> {hand.notes}
                       </p>
+                    </div>
+                  )}
+
+                  {expandedHands[hand._id] && (
+                    <div className="mt-3 pt-3 border-t space-y-2 text-sm">
+                      {Array.isArray(hand.winners) && hand.winners.length > 0 && (
+                        <div>
+                          <div className="font-medium">Winners</div>
+                          <ul className="ml-4 space-y-0.5">
+                            {hand.winners.map((w: any, i: number) => (
+                              <li key={i}>{w.playerName || w.playerId}: Won ${w.amount}{w.hand ? ` (${w.hand})` : ''}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {Array.isArray(hand.actions) && hand.actions.length > 0 && (
+                        <div className="space-y-2">
+                          {(['preflop', 'flop', 'turn', 'river'] as string[]).map(round => {
+                            const roundActions = hand.actions.filter((a: any) => a.round === round)
+                            if (roundActions.length === 0) return null
+                            const players = roundActions.reduce((acc: Record<string, any[]>, a: any) => {
+                              const pos = a.position || 'Unknown'
+                              if (!acc[pos]) acc[pos] = []
+                              acc[pos].push(a)
+                              return acc
+                            }, {} as Record<string, any[]>)
+                            return (
+                              <div key={round}>
+                                <div className="font-semibold capitalize">{round}</div>
+                                <ul className="ml-4 text-xs text-slate-500 space-y-0.5">
+                                  {Object.entries(players).map(([pos, acts]) => (
+                                    <li key={pos}>
+                                      {pos}: {(acts as any[])
+                                        .map(a => `${(a as any).action}${(a as any).amount > 0 ? ' $' + (a as any).amount : ''}`)
+                                        .join(', ')}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
